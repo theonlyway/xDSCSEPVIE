@@ -9,44 +9,21 @@ InModuleScope -ModuleName xDSCSEPVIE -ScriptBlock {
   $global:mockedVolume = [pscustomobject] @{
     FileSystemLabel = 'myLabel'
     DriveLetter     = 'C'
+    DriveType       = 'Fixed'
   }
-  $global:mockedCSVSuccess = [pscustomobject] @{
+  $global:mockedCSV = @()
+  $global:mockedCSV += [pscustomobject] @{
     DriveLetter = 'C'
     DateScanned = (Get-Date -Format dd/MM/yyyy)
   }
-  $global:mockedCSVFailure = @()
-  $global:mockedCSVFailure += [pscustomobject] @{
-    DriveLetter = 'C'
-    DateScanned = (Get-Date -Format dd/MM/yyyy)
-  }
-  $global:mockedCSVFailure += [pscustomobject] @{
-    DriveLetter = 'D'
+  $global:mockedCSV += [pscustomobject] @{
+    DriveLetter = 'GG'
     DateScanned = (Get-Date -Format dd/MM/yyyy)
   }
 
-  Describe -Name 'Testing mocks' -Fixture {
-    Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVSuccess
-    }
-    Mock -CommandName Get-Volume -MockWith {
-      $global:mockedVolume
-    }
-    Mock -CommandName Test-Path -MockWith {
-      return $true
-    }
-    It -name 'import-csv' -test {
-      (Import-Csv).driveletter | Should Be 'C'
-    }
-    It -name 'get-volume' -test {
-      (Get-Volume).driveletter  | Should Be 'C'
-    }
-    It -name 'test-path' -test {
-      Test-Path -Path C:\windows\temp\VIEDrives.csv  | Should Be 'true'
-    }
-  }
   Describe -Name 'Testing if functions return correct objects' -Fixture {
     Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVSuccess
+      $global:mockedCSV
     }
     Mock -CommandName Get-Volume -MockWith {
       $global:mockedVolume
@@ -64,46 +41,74 @@ InModuleScope -ModuleName xDSCSEPVIE -ScriptBlock {
   }
 
   Describe -Name "Testing $($Global:DSCResourceName)\Get-TargetResource present/absent logic" -Fixture {
-    Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVSuccess
-    }
-    Mock -CommandName Get-Volume -MockWith {
-      $global:mockedVolume
-    }
-    Mock -CommandName Test-Path -MockWith {
-      return $true
-    }
-    It -name 'Get-TargetResource should return present' -test {
-      (Get-TargetResource -VIELocation $VIELocation).Values | Should Be 'Present'
-    }
-    Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVFailure
-    }
-    It -name 'Get-TargetResource should return absent' -test {
-      (Get-TargetResource -VIELocation $VIELocation).Values | Should Be 'Absent'
-    }
-  }
-  
-  
-  
-  Describe -Name "Testing $($Global:DSCResourceName)\Test-TargetResource logic" -Fixture {
-    Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVSuccess
-    }
-    Mock -CommandName Get-Volume -MockWith {
-      $global:mockedVolume
-    }
-    Mock -CommandName Test-Path -MockWith {
-      return $true
-    }
-    It -name 'Test-TargetResource should return true' -test {
-      Test-TargetResource -VIELocation $VIELocation -Ensure Present | Should Be 'True'
-    }
-    Mock -CommandName Import-CSV -MockWith {
-      $global:mockedCSVFailure
-    }    
-    It -name 'Test-TargetResource should return false' -test {
-      Test-TargetResource -VIELocation $VIELocation -Ensure Absent | Should Be 'True'
+    foreach ($drivetest in $global:mockedCSV ) 
+    {
+      if ($drivetest.driveLetter -in $global:mockedVolume.driveLetter) 
+      {
+        Mock -CommandName Import-CSV -MockWith {
+          $drivetest
+        }
+        Mock -CommandName Get-Volume -MockWith {
+          $global:mockedVolume
+        }
+        Mock -CommandName Test-Path -MockWith {
+          return $true
+        }
+        It -name "Get-TargetResource should return present for drive letter ($($drivetest.driveletter))" -test {
+          (Get-TargetResource -VIELocation $VIELocation).Values | Should Be 'Present'
+        }    
+      }
+      else 
+      {
+        Mock -CommandName Import-CSV -MockWith {
+          $drivetest
+        }
+        Mock -CommandName Get-Volume -MockWith {
+          $global:mockedVolume
+        }
+        Mock -CommandName Test-Path -MockWith {
+          return $true
+        }
+        It -name "Get-TargetResource should return absent for drive letter ($($drivetest.driveletter))" -test {
+          (Get-TargetResource -VIELocation $VIELocation).Values | Should Be 'absent'
+        }  
+      }
     }
   }
+  
+  Describe -Name "Testing $($Global:DSCResourceName)\Get-TargetResource present/absent logic" -Fixture {
+    foreach ($drivetest in $global:mockedCSV ) 
+    {
+      if ($drivetest.driveLetter -in $global:mockedVolume.driveLetter) 
+      {
+        Mock -CommandName Import-CSV -MockWith {
+          $drivetest
+        }
+        Mock -CommandName Get-Volume -MockWith {
+          $global:mockedVolume
+        }
+        Mock -CommandName Test-Path -MockWith {
+          return $true
+        }
+        It -name "Test-TargetResource should return true for drive letter ($($drivetest.driveletter))" -test {
+          Test-TargetResource -VIELocation $VIELocation -Ensure Present | Should Be 'True'
+        }     
+      }
+      else 
+      {
+        Mock -CommandName Import-CSV -MockWith {
+          $drivetest
+        }
+        Mock -CommandName Get-Volume -MockWith {
+          $global:mockedVolume
+        }
+        Mock -CommandName Test-Path -MockWith {
+          return $true
+        }
+        It -name "Test-TargetResource should return false for drive letter ($($drivetest.driveletter))" -test {
+          Test-TargetResource -VIELocation $VIELocation -Ensure Absent | Should Be 'True'
+        }
+      }
+    }
+  } 
 }
