@@ -76,7 +76,7 @@ InModuleScope -ModuleName xDSCSEPVIE -ScriptBlock {
     }
   }
   
-  Describe -Name "Testing $($Global:DSCResourceName)\Get-TargetResource present/absent logic" -Fixture {
+  Describe -Name "Testing $($Global:DSCResourceName)\Test-TargetResource present/absent logic" -Fixture {
     foreach ($drivetest in $global:mockedCSV ) 
     {
       if ($drivetest.driveLetter -in $global:mockedVolume.driveLetter) 
